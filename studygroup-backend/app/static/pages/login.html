@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyGroup Hub - 登录</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo h2 {
+            color: #333;
+            font-weight: 600;
+        }
+        .logo p {
+            color: #666;
+            margin-top: 5px;
+        }
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px;
+            font-weight: 500;
+            width: 100%;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .alert {
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        .form-label {
+            font-weight: 500;
+            color: #555;
+        }
+        .form-control {
+            border-radius: 8px;
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            transition: all 0.3s;
+        }
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="logo">
+            <h2>📚 StudyGroup Hub</h2>
+            <p>课程小组协作管理系统</p>
+        </div>
+
+        <!-- 登录表单 -->
+        <form id="loginForm">
+            <div class="mb-3">
+                <label for="user_id" class="form-label">用户ID</label>
+                <input 
+                    type="number" 
+                    class="form-control" 
+                    id="user_id" 
+                    placeholder="输入用户ID"
+                    value="1"
+                    required>
+                <div class="form-text">测试账号ID：1</div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="contact" class="form-label">联系方式</label>
+                <input 
+                    type="text" 
+                    class="form-control" 
+                    id="contact" 
+                    placeholder="输入手机号"
+                    value="13800138000"
+                    required>
+                <div class="form-text">测试联系方式：13800138000</div>
+            </div>
+
+            <!-- 错误提示 -->
+            <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
+
+            <!-- 成功提示 -->
+            <div id="successAlert" class="alert alert-success d-none" role="alert"></div>
+
+            <button type="submit" class="btn btn-login" id="loginBtn">
+                <span id="btnText">登录</span>
+                <span id="loadingSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+            </button>
+
+            <div class="mt-3 text-center">
+                <small class="text-muted">
+                    💡 提示：系统会验证用户ID和联系方式是否匹配数据库中的记录
+                </small>
+            </div>
+        </form>
+
+        <!-- 测试信息面板 -->
+        <div class="mt-4 p-3 bg-light rounded">
+            <h6 class="mb-2">🧪 测试信息</h6>
+            <div class="row">
+                <div class="col-6">
+                    <small><strong>后端状态：</strong></small><br>
+                    <span id="backendStatus" class="badge bg-secondary">检测中...</span>
+                </div>
+                <div class="col-6 text-end">
+                    <button class="btn btn-sm btn-outline-primary" onclick="testAPI()">
+                        测试连接
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // 后端API基础URL
+        const API_BASE = 'http://127.0.0.1:5000/api';
+
+        // 页面加载时检查后端状态
+        document.addEventListener('DOMContentLoaded', function() {
+            checkBackendStatus();
+        });
+
+        // 检查后端服务状态
+        async function checkBackendStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/user/1`);
+                const data = await response.json();
+                
+                const statusBadge = document.getElementById('backendStatus');
+                if (response.ok && data.code === 200) {
+                    statusBadge.className = 'badge bg-success';
+                    statusBadge.textContent = '正常';
+                } else {
+                    statusBadge.className = 'badge bg-warning';
+                    statusBadge.textContent = '数据异常';
+                }
+            } catch (error) {
+                const statusBadge = document.getElementById('backendStatus');
+                statusBadge.className = 'badge bg-danger';
+                statusBadge.textContent = '连接失败';
+            }
+        }
+
+        // 表单提交处理
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // 获取表单数据
+            const user_id = document.getElementById('user_id').value;
+            const contact = document.getElementById('contact').value;
+            
+            // 验证输入
+            if (!user_id || !contact) {
+                showError('请填写完整的登录信息');
+                return;
+            }
+
+            // 显示加载状态
+            const loginBtn = document.getElementById('loginBtn');
+            const btnText = document.getElementById('btnText');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            
+            loginBtn.disabled = true;
+            btnText.textContent = '登录中...';
+            loadingSpinner.classList.remove('d-none');
+
+            // 隐藏之前的提示
+            hideAlerts();
+
+            try {
+                // 调用后端登录接口
+                const response = await fetch(`${API_BASE}/user/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: parseInt(user_id),
+                        contact: contact.trim()
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.code === 200) {
+                    // 登录成功
+                    showSuccess(`登录成功！欢迎 ${data.data.user_name}`);
+                    
+                    // 保存用户信息到本地存储
+                    localStorage.setItem('userInfo', JSON.stringify(data.data));
+                    
+                    // 2秒后跳转到小组列表页
+                    setTimeout(() => {
+                        window.location.href = '/static/pages/group-list.html';
+                    }, 2000);
+                    
+                } else {
+                    // 登录失败
+                    showError(data.msg || '登录失败，请检查用户ID和联系方式');
+                }
+                
+            } catch (error) {
+                showError('网络错误，请检查后端服务是否启动');
+                console.error('登录错误:', error);
+                
+            } finally {
+                // 恢复按钮状态
+                loginBtn.disabled = false;
+                btnText.textContent = '登录';
+                loadingSpinner.classList.add('d-none');
+            }
+        });
+
+        // 显示错误提示
+        function showError(message) {
+            const errorAlert = document.getElementById('errorAlert');
+            errorAlert.textContent = message;
+            errorAlert.classList.remove('d-none');
+            
+            // 5秒后自动隐藏
+            setTimeout(() => {
+                errorAlert.classList.add('d-none');
+            }, 5000);
+        }
+
+        // 显示成功提示
+        function showSuccess(message) {
+            const successAlert = document.getElementById('successAlert');
+            successAlert.textContent = message;
+            successAlert.classList.remove('d-none');
+        }
+
+        // 隐藏所有提示
+        function hideAlerts() {
+            document.getElementById('errorAlert').classList.add('d-none');
+            document.getElementById('successAlert').classList.add('d-none');
+        }
+
+        // 测试API连接
+        async function testAPI() {
+            const statusBadge = document.getElementById('backendStatus');
+            statusBadge.className = 'badge bg-secondary';
+            statusBadge.textContent = '检测中...';
+            
+            try {
+                // 测试用户接口
+                const userResponse = await fetch(`${API_BASE}/user/1`);
+                const userData = await userResponse.json();
+                
+                if (userResponse.ok && userData.code === 200) {
+                    statusBadge.className = 'badge bg-success';
+                    statusBadge.textContent = '正常';
+                    
+                    // 自动填充测试账号
+                    document.getElementById('user_id').value = userData.data.user_id;
+                    document.getElementById('contact').value = userData.data.contact;
+                    
+                    showSuccess(`✅ 连接正常！用户：${userData.data.user_name}`);
+                } else {
+                    statusBadge.className = 'badge bg-warning';
+                    statusBadge.textContent = '数据异常';
+                    showError('后端返回数据异常');
+                }
+                
+            } catch (error) {
+                statusBadge.className = 'badge bg-danger';
+                statusBadge.textContent = '连接失败';
+                showError('无法连接到后端服务，请确保已运行 python run.py');
+            }
+        }
+
+        // 快速测试按钮功能
+        function quickTest(userId, contact) {
+            document.getElementById('user_id').value = userId;
+            document.getElementById('contact').value = contact;
+            document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+        }
+    </script>
+
+    <!-- 快速测试按钮（开发阶段用） -->
+    <div style="position: fixed; bottom: 20px; right: 20px;">
+        <div class="btn-group-vertical" role="group">
+            <button type="button" class="btn btn-sm btn-info" 
+                    onclick="quickTest(1, '13800138000')">
+                测试账号1
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary" 
+                    onclick="quickTest(2, '13800138001')">
+                测试账号2
+            </button>
+        </div>
+    </div>
+</body>
+</html>

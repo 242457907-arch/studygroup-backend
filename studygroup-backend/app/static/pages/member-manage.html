@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成员管理 - StudyGroup Hub</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background: #f8f9fa; padding-top: 70px; }
+        .navbar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .member-card { padding: 15px; margin-bottom: 10px; background: white; border-radius: 8px; border-left: 4px solid #667eea; }
+        .member-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .loading { background: #e9ecef; border-radius: 4px; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #6c757d; }
+        .badge-role { font-size: 0.75rem; padding: 3px 8px; }
+        .tab-content { padding-top: 20px; }
+        .search-box { border-radius: 20px; padding-left: 40px; }
+        .search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #6c757d; }
+        .action-btn { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/static/pages/group-home.html">
+                <i class="fas fa-arrow-left me-2"></i>成员管理
+            </a>
+            <div class="d-flex align-items-center text-white">
+                <span id="groupName">小组成员</span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- 统计卡片 -->
+        <div class="row g-3 mb-4" id="statsCards">
+            <div class="col-md-4">
+                <div class="card text-center py-3">
+                    <div class="loading" style="height: 40px; width: 60px; margin: 0 auto 10px;"></div>
+                    <div class="loading" style="height: 16px; width: 80px; margin: 0 auto;"></div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center py-3">
+                    <div class="loading" style="height: 40px; width: 60px; margin: 0 auto 10px;"></div>
+                    <div class="loading" style="height: 16px; width: 80px; margin: 0 auto;"></div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center py-3">
+                    <div class="loading" style="height: 40px; width: 60px; margin: 0 auto 10px;"></div>
+                    <div class="loading" style="height: 16px; width: 80px; margin: 0 auto;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作栏 -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="position-relative">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" class="form-control search-box" 
+                                   placeholder="搜索成员..." id="searchInput" onkeyup="searchMembers()">
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <button class="btn btn-primary" onclick="showInviteModal()" id="inviteBtn">
+                            <i class="fas fa-user-plus me-2"></i>邀请成员
+                        </button>
+                        <button class="btn btn-outline-secondary ms-2" onclick="refreshData()">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 成员列表 -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="fas fa-users me-2"></i>小组成员
+                    <span class="badge bg-secondary" id="memberCount">0</span>
+                </h5>
+                
+                <div id="membersContainer">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-3 text-muted">加载成员中...</p>
+                    </div>
+                </div>
+                
+                <!-- 空状态 -->
+                <div class="empty-state d-none" id="emptyState">
+                    <i class="fas fa-users fa-3x mb-3 text-muted"></i>
+                    <h5>暂无成员</h5>
+                    <p class="text-muted">邀请成员加入小组开始协作</p>
+                    <button class="btn btn-primary mt-3" onclick="showInviteModal()">
+                        <i class="fas fa-user-plus me-2"></i>邀请成员
+                    </button>
+                </div>
+                
+                <!-- 搜索结果空状态 -->
+                <div class="empty-state d-none" id="searchEmptyState">
+                    <i class="fas fa-search fa-3x mb-3 text-muted"></i>
+                    <h5>未找到匹配的成员</h5>
+                    <p class="text-muted">尝试其他搜索关键词</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div class="alert alert-info mt-4" id="loadingAlert">
+            <i class="fas fa-spinner fa-spin me-2"></i>正在同步成员数据...
+        </div>
+    </div>
+
+   <!-- 邀请成员模态框（简化版） -->
+    <div class="modal fade" id="inviteModal">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title"><i class="fas fa-user-plus me-2"></i>邀请成员</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">用户ID</label>
+                        <input type="number" class="form-control" id="userId" 
+                                   placeholder="输入用户ID" min="1">
+                    </div>
+                    <div class="alert alert-warning d-none" id="inviteError"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="inviteMember()" id="inviteSubmitBtn">
+                        <span>邀请</span>
+                        <span class="spinner-border spinner-border-sm d-none ms-1" id="inviteSpinner"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 成员详情模态框 -->
+    <div class="modal fade" id="memberDetailModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="memberModalTitle">成员详情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <div class="member-avatar mx-auto mb-3" id="modalAvatar" style="width: 60px; height: 60px;">
+                            <span id="modalAvatarText">U</span>
+                        </div>
+                        <h5 id="modalMemberName">成员姓名</h5>
+                        <p class="text-muted mb-0" id="modalMemberId">用户ID: </p>
+                    </div>
+                    
+                    <div class="list-group">
+                        <div class="list-group-item">
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">联系方式</small>
+                                    <p class="mb-0" id="modalMemberContact"></p>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">加入时间</small>
+                                    <p class="mb-0" id="modalJoinTime">未知</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="list-group-item">
+                            <small class="text-muted">角色</small>
+                            <div class="mt-1">
+                                <span class="badge bg-primary" id="modalMemberRole">成员</span>
+                            </div>
+                        </div>
+                        <div class="list-group-item">
+                            <small class="text-muted">贡献统计</small>
+                            <div class="row mt-2">
+                                <div class="col-4 text-center">
+                                    <h6 class="mb-1" id="modalTaskCount">0</h6>
+                                    <small class="text-muted">任务</small>
+                                </div>
+                                <div class="col-4 text-center">
+                                    <h6 class="mb-1" id="modalFileCount">0</h6>
+                                    <small class="text-muted">文件</small>
+                                </div>
+                                <div class="col-4 text-center">
+                                    <h6 class="mb-1" id="modalCompleteRate">0%</h6>
+                                    <small class="text-muted">完成率</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-warning d-none" id="memberModalError"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-danger" onclick="showRemoveConfirm()" id="removeBtn">
+                        <i class="fas fa-user-minus me-2"></i>移出小组
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 移除成员确认模态框 -->
+    <div class="modal fade" id="removeConfirmModal">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-body text-center py-4">
+                    <div class="mb-3">
+                        <i class="fas fa-exclamation-triangle text-warning fa-3x"></i>
+                    </div>
+                    <h5>确认移出？</h5>
+                    <p class="text-muted" id="removeMemberName">此操作不可恢复</p>
+                    <div class="mt-4">
+                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-danger" onclick="confirmRemoveMember()">确认移出</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 成功提示 -->
+    <div class="modal fade" id="successModal">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-body text-center py-4">
+                    <div class="mb-3">
+                        <i class="fas fa-check-circle text-success fa-3x"></i>
+                    </div>
+                    <h5 id="successTitle">操作成功</h5>
+                    <p class="text-muted" id="successMessage">操作已完成</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = 'http://127.0.0.1:5000/api';
+        let currentGroupId = null;
+        let currentUser = null;
+        let allMembers = [];
+        let currentMemberId = null;
+        let searchTerm = '';
+
+        // ✅ 页面初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取小组ID
+            const params = new URLSearchParams(window.location.search);
+            currentGroupId = params.get('group_id') || localStorage.getItem('currentGroupId');
+            
+            if (!currentGroupId) {
+                alert('未指定小组，返回主页');
+                window.location.href = '/static/pages/group-list.html';
+                return;
+            }
+
+            // 获取用户信息
+            const userInfo = localStorage.getItem('userInfo');
+            if (userInfo) {
+                currentUser = JSON.parse(userInfo);
+                updatePermissionUI();
+            }
+
+            // 加载数据
+            loadAllData();
+        });
+
+        // ✅ 更新权限UI（根据用户角色显示不同操作）
+        function updatePermissionUI() {
+            // 这里可以根据当前用户是否是组长等角色来显示/隐藏功能
+            // 暂时所有成员都可以查看，但只有部分操作可用
+            const inviteBtn = document.getElementById('inviteBtn');
+            if (inviteBtn) {
+                inviteBtn.disabled = false;
+            }
+        }
+
+        // ✅ 加载所有数据
+        async function loadAllData() {
+            try {
+                // 并行加载小组信息和成员数据
+                const [groupInfo, membersData] = await Promise.all([
+                    fetchGroupInfo(),
+                    fetchMembers()
+                ]);
+
+                // 更新小组信息
+                if (groupInfo) {
+                    document.getElementById('groupName').textContent = `${groupInfo.group_name} - 成员管理`;
+                }
+
+                // 更新成员数据
+                if (membersData) {
+                    allMembers = membersData;
+                    updateStats(membersData);
+                    renderMembers(membersData);
+                }
+
+                // 隐藏加载提示
+                document.getElementById('loadingAlert').className = 'alert alert-success';
+                document.getElementById('loadingAlert').innerHTML = '<i class="fas fa-check-circle me-2"></i>数据加载完成';
+                setTimeout(() => {
+                    document.getElementById('loadingAlert').style.display = 'none';
+                }, 2000);
+
+            } catch (error) {
+                console.error('数据加载失败:', error);
+                document.getElementById('loadingAlert').className = 'alert alert-danger';
+                document.getElementById('loadingAlert').innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>数据加载失败';
+            }
+        }
+
+        // ✅ 获取小组信息
+        async function fetchGroupInfo() {
+            try {
+                const response = await fetch(`${API_BASE}/group/${currentGroupId}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                if (data.code === 200) {
+                    return data.data;
+                }
+                return null;
+            } catch (error) {
+                console.warn('小组信息获取失败:', error);
+                return null;
+            }
+        }
+
+        // ✅ 获取成员列表
+        async function fetchMembers() {
+            try {
+                // 注意：这里需要传入user_id参数来验证权限
+                const url = `${API_BASE}/group/${currentGroupId}/members?user_id=${currentUser?.user_id || 0}`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                if (data.code === 200) {
+                    return data.data || [];
+                } else {
+                    throw new Error(data.msg || '获取成员列表失败');
+                }
+            } catch (error) {
+                console.error('成员获取失败:', error);
+                showAlert('权限不足或获取成员列表失败', 'danger');
+                return [];
+            }
+        }
+
+        // ✅ 获取用户的任务统计（模拟数据）
+        // ✅ 获取用户的任务统计（真实数据）
+        async function fetchUserStats(userId) {
+            try {
+                const response = await fetch(`${API_BASE}/user/${userId}/stats?group_id=${currentGroupId}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+                const data = await response.json();
+                if (data.code === 200) {
+                    return {
+                        task_count: data.data.total_tasks || 0,
+                        file_count: data.data.uploaded_files || 0,
+                        complete_rate: data.data.completion_rate || 0,
+                        role: data.data.role || 'member',
+                        join_time: data.data.join_time || '未知'
+                    };
+                }
+                return { task_count: 0, file_count: 0, complete_rate: 0, role: 'member', join_time: '未知' };
+            } catch (error) {
+                console.warn('获取用户统计失败:', error);
+                return { task_count: 0, file_count: 0, complete_rate: 0, role: 'member', join_time: '未知' };
+            }
+        }
+
+        // ✅ 更新统计卡片
+        function updateStats(members) {
+            const total = members.length;
+            
+            // 统计角色（模拟数据，实际应该从API获取）
+            const creatorCount = 1; // 假设创建者是组长
+            const normalCount = total > 1 ? total - 1 : 0;
+            
+            // 计算平均贡献（模拟数据）
+            const avgTasks = Math.floor(Math.random() * 5) + 1;
+
+            document.getElementById('statsCards').innerHTML = `
+                <div class="col-md-4">
+                    <div class="card text-center py-3">
+                        <h3 class="text-primary">${total}</h3>
+                        <p class="text-muted mb-0">成员总数</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-center py-3">
+                        <h3 class="text-success">${creatorCount}</h3>
+                        <p class="text-muted mb-0">组长</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-center py-3">
+                        <h3 class="text-warning">${normalCount}</h3>
+                        <p class="text-muted mb-0">组员</p>
+                    </div>
+                </div>
+            `;
+            
+            // 更新成员计数
+            document.getElementById('memberCount').textContent = total;
+        }
+
+        // ✅ 渲染成员列表
+        function renderMembers(members) {
+            const container = document.getElementById('membersContainer');
+            const emptyState = document.getElementById('emptyState');
+            const searchEmptyState = document.getElementById('searchEmptyState');
+            
+            // 过滤搜索结果
+            let filteredMembers = members;
+            if (searchTerm) {
+                filteredMembers = members.filter(member => {
+                    const name = (member.user_name || '').toLowerCase();
+                    const contact = (member.contact || '').toLowerCase();
+                    const search = searchTerm.toLowerCase();
+                    return name.includes(search) || contact.includes(search);
+                });
+            }
+            
+            if (!filteredMembers || filteredMembers.length === 0) {
+                container.innerHTML = '';
+                if (searchTerm) {
+                    searchEmptyState.classList.remove('d-none');
+                    emptyState.classList.add('d-none');
+                } else {
+                    emptyState.classList.remove('d-none');
+                    searchEmptyState.classList.add('d-none');
+                }
+                return;
+            }
+            
+            emptyState.classList.add('d-none');
+            searchEmptyState.classList.add('d-none');
+            
+            let html = '';
+            filteredMembers.forEach((member) => {
+                const role = member.role || 'member';
+                const roleDisplay = role === 'creator' ? '组长' : role === 'leader' ? '负责人' : '成员';
+                const roleClass = role === 'creator' ? 'bg-danger' : role === 'leader' ? 'bg-warning' : 'bg-primary';
+                const isCurrentUser = currentUser && currentUser.user_id === member.user_id;
+        
+                // 使用真实统计数据
+                const totalTasks = member.total_tasks || 0;
+                const completedTasks = member.completed_tasks || 0;
+                const uploadedFiles = member.uploaded_files || 0;
+                const completionRate = member.completion_rate || 0;
+                
+                // 获取姓名首字母用于头像
+                const name = member.user_name || '用户';
+                const firstChar = name.charAt(0).toUpperCase();
+                
+                html += `
+                <div class="member-card" onclick="showMemberDetail(${member.user_id})" style="cursor: pointer;">
+                    <div class="row align-items-center">
+                        <div class="col-md-1">
+                            <div class="member-avatar">
+                                ${firstChar}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="mb-1">${name} ${isCurrentUser ? '<span class="badge bg-info badge-role">我</span>' : ''}</h6>
+                            <span class="badge ${roleClass} badge-role">${roleDisplay}</span>
+                            ${member.contact ? `<small class="text-muted ms-2"><i class="fas fa-phone me-1"></i>${member.contact}</small>` : ''}
+                        </div>
+                        <div class="col-md-3">
+                            <div class="small text-muted">
+                                <div><i class="fas fa-tasks me-1"></i>任务: ${completedTasks}/${totalTasks}</div>
+                                <div><i class="fas fa-file me-1"></i>文件: ${uploadedFiles}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar ${completionRate >= 80 ? 'bg-success' : completionRate >= 50 ? 'bg-warning' : 'bg-danger'}" 
+                                     style="width: ${completionRate}%"></div>
+                            </div>
+                            <small class="text-muted">${completionRate}% 完成率</small>
+                        </div>
+                        <div class="col-md-2 text-end">
+                            ${!isCurrentUser && role !== 'creator' ? `
+                            <button class="btn btn-sm btn-outline-danger action-btn" onclick="event.stopPropagation();showRemoveMemberConfirm(${member.user_id}, '${name}')" title="移出小组">
+                                <i class="fas fa-user-minus"></i>
+                            </button>
+                            ` : ''}
+                            <button class="btn btn-sm btn-outline-primary action-btn ms-2" onclick="event.stopPropagation();showMemberDetail(${member.user_id})" title="查看详情">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // ✅ 搜索成员
+        function searchMembers() {
+            searchTerm = document.getElementById('searchInput').value;
+            renderMembers(allMembers);
+        }
+
+        // ✅ 显示邀请模态框
+        function showInviteModal() {
+            if (!currentUser) {
+                alert('请先登录');
+                return;
+            }
+            
+            document.getElementById('userId').value = '';
+            document.getElementById('inviteError').classList.add('d-none');
+            
+            new bootstrap.Modal(document.getElementById('inviteModal')).show();
+        }
+
+        // ✅ 邀请成员（需要后端实现对应接口）
+        async function inviteMember() {
+            const userId = document.getElementById('userId').value.trim();
+            
+            if (!userId) {
+                showInviteError('请输入用户ID');
+                return;
+            }
+            
+            if (userId == currentUser.user_id) {
+                showInviteError('不能邀请自己');
+                return;
+            }
+            
+            // 显示加载状态
+            const submitBtn = document.getElementById('inviteSubmitBtn');
+            const spinner = document.getElementById('inviteSpinner');
+            submitBtn.disabled = true;
+            spinner.classList.remove('d-none');
+            
+            try {
+                // 注意：这里需要一个邀请成员的API接口
+                // 暂时使用模拟实现
+                const response = await fetch(`${API_BASE}/group/${currentGroupId}/invite`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        inviter_id: currentUser.user_id,
+                        invitee_id: parseInt(userId)
+                    })
+                });
+                
+                const data = await response.json();
+
+                if (response.ok && data.code === 200) {
+                    showSuccess('邀请成功', '用户已加入小组');
+                    bootstrap.Modal.getInstance(document.getElementById('inviteModal')).hide();
+            // 刷新成员列表
+                    setTimeout(refreshData, 1000);
+                } else {
+                    showInviteError(data.msg || '操作失败');
+                }
+                
+            } catch (error) {
+                console.error('邀请失败:', error);
+                showInviteError('网络错误，请重试');
+            } finally {
+                submitBtn.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        }
+
+        // ✅ 显示成员详情
+        async function showMemberDetail(memberId) {
+            currentMemberId = memberId;
+            
+            const member = allMembers.find(m => m.user_id == memberId);
+            if (!member) return;
+            
+            // 更新模态框内容
+            const name = member.user_name || '用户';
+            const firstChar = name.charAt(0).toUpperCase();
+            
+            document.getElementById('modalAvatarText').textContent = firstChar;
+            document.getElementById('modalMemberName').textContent = name;
+            document.getElementById('modalMemberId').textContent = `用户ID: ${member.user_id}`;
+            document.getElementById('modalMemberContact').textContent = member.contact || '未设置';
+            document.getElementById('modalJoinTime').textContent = member.join_time || '未知';
+            // 获取用户统计信息
+            const stats = await fetchUserStats(memberId);
+            document.getElementById('modalTaskCount').textContent = stats.task_count;
+            document.getElementById('modalFileCount').textContent = stats.file_count;
+            document.getElementById('modalCompleteRate').textContent = `${stats.complete_rate}%`;
+            
+            // 使用API返回的角色
+            const role = stats.role || 'member';
+            document.getElementById('modalMemberRole').textContent = 
+                role === 'creator' ? '组长' : role === 'leader' ? '负责人' : '成员';
+            document.getElementById('modalMemberRole').className = 
+                role === 'creator' ? 'badge bg-danger' : role === 'leader' ? 'badge bg-warning' : 'badge bg-primary';
+
+            // 判断是否为当前用户，如果是则隐藏移除按钮
+            const removeBtn = document.getElementById('removeBtn');
+            if (removeBtn) {
+                removeBtn.style.display = (member.user_id === currentUser?.user_id) ? 'none' : 'block';
+            }
+            
+            // 判断是否为创建者（假设第一个是创建者）
+            const isCreator = allMembers[0] && allMembers[0].user_id === memberId;
+            document.getElementById('modalMemberRole').textContent = isCreator ? '组长' : '成员';
+            document.getElementById('modalMemberRole').className = isCreator ? 'badge bg-danger' : 'badge bg-primary';
+            
+            // 显示模态框
+            new bootstrap.Modal(document.getElementById('memberDetailModal')).show();
+        }
+
+        // ✅ 显示移除成员确认（从成员卡片直接调用）
+        function showRemoveMemberConfirm(memberId, memberName) {
+            currentMemberId = memberId;
+            document.getElementById('removeMemberName').textContent = `确认移出成员 "${memberName}"？`;
+            new bootstrap.Modal(document.getElementById('removeConfirmModal')).show();
+        }
+
+        // ✅ 显示移除确认（从详情模态框调用）
+        function showRemoveConfirm() {
+            const member = allMembers.find(m => m.user_id == currentMemberId);
+            if (member) {
+                document.getElementById('removeMemberName').textContent = `确认移出成员 "${member.user_name}"？`;
+                bootstrap.Modal.getInstance(document.getElementById('memberDetailModal')).hide();
+                setTimeout(() => {
+                    new bootstrap.Modal(document.getElementById('removeConfirmModal')).show();
+                }, 300);
+            }
+        }
+
+        // ✅ 确认移除成员（需要后端实现对应接口）
+        async function confirmRemoveMember() {
+            if (!currentMemberId || !currentUser) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/group/${currentGroupId}/remove`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target_id: currentMemberId
+                    })
+                });
+                
+                const data = await response.json();
+
+                if (response.ok && data.code === 200) {
+                    showSuccess('移除成功', '成员已移除');
+                    // 关闭模态框
+                    bootstrap.Modal.getInstance(document.getElementById('removeConfirmModal')).hide();
+            // 刷新成员列表
+                    setTimeout(refreshData, 500);
+                } else {
+                    showAlert(data.msg || '移除失败', 'danger');
+                }
+                
+            } catch (error) {
+                console.error('移除失败:', error);
+                showAlert('网络错误，请重试', 'danger');
+            }
+        }
+
+        // ✅ 刷新数据
+        async function refreshData() {
+            document.getElementById('loadingAlert').style.display = 'block';
+            document.getElementById('loadingAlert').className = 'alert alert-info';
+            document.getElementById('loadingAlert').innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>刷新数据中...';
+            
+            try {
+                const membersData = await fetchMembers();
+                if (membersData) {
+                    allMembers = membersData;
+                    updateStats(membersData);
+                    renderMembers(membersData);
+                }
+                
+                document.getElementById('loadingAlert').className = 'alert alert-success';
+                document.getElementById('loadingAlert').innerHTML = '<i class="fas fa-check-circle me-2"></i>数据已刷新';
+                setTimeout(() => {
+                    document.getElementById('loadingAlert').style.display = 'none';
+                }, 2000);
+                
+            } catch (error) {
+                document.getElementById('loadingAlert').className = 'alert alert-danger';
+                document.getElementById('loadingAlert').innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>刷新失败';
+            }
+        }
+
+        // ✅ 工具函数
+        function showInviteError(message) {
+            const errorDiv = document.getElementById('inviteError');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('d-none');
+            setTimeout(() => errorDiv.classList.add('d-none'), 3000);
+        }
+
+        function showAlert(message, type = 'success') {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show position-fixed bottom-3 start-50 translate-middle-x`;
+            alert.style.zIndex = '9999';
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+            `;
+            document.body.appendChild(alert);
+            setTimeout(() => alert.remove(), 3000);
+        }
+
+        function showSuccess(title, message) {
+            document.getElementById('successTitle').textContent = title;
+            document.getElementById('successMessage').textContent = message;
+            new bootstrap.Modal(document.getElementById('successModal')).show();
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('successModal')).hide();
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
