@@ -1,5 +1,5 @@
 // API基础地址
-const API_BASE = 'http://127.0.0.1:5000/api';
+const API_BASE = 'http://studygroup-backend-production-9cad.up.railway.app';
 
 // 通用请求函数 - 适用于 {code, data, msg} 格式
 async function apiRequest(endpoint, method = 'GET', data = null) {
